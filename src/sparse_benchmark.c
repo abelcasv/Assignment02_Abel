@@ -164,13 +164,12 @@ static CSRMatrix* multiply_csr_spgemm(const CSRMatrix* a, const CSRMatrix* b) {
     return c;
 }
 
-/* Dense multiplication kernel for direct comparison on the same inputs */
+/* Pure Dense i-k-j multiplication kernel (identical to Part A reordered_ikj) */
 static void multiply_dense_ikj(const double* a, const double* b, double* c, int n) {
     memset(c, 0, (size_t)n * n * sizeof(double));
     for (int i = 0; i < n; i++) {
         for (int k = 0; k < n; k++) {
             double r = a[i * n + k];
-            if (fabs(r) < 1e-12) continue;
             for (int j = 0; j < n; j++) {
                 c[i * n + j] += r * b[k * n + j];
             }
@@ -331,37 +330,22 @@ int main(int argc, char* argv[]) {
         CSRMatrix* csr_b = dense_to_csr(dense_b, n);
         QueryPerformanceCounter(&conv_t1);
         double conv_time = (double)(conv_t1.QuadPart - conv_t0.QuadPart) / (double)freq.QuadPart;
+        int nnz_a = csr_a->nnz;
+        int nnz_b = csr_b->nnz;
 
         printf("  CSR Conversion Time: %.6f s | NNZ(A)=%d, NNZ(B)=%d\n",
-               conv_time, csr_a->nnz, csr_b->nnz);
+               conv_time, nnz_a, nnz_b);
 
-        /* 1. Sparse CSR Kernel */
+        /* Pre-compute output NNZ via warm-up of CSR SpGEMM */
         printf("  [CSR SpGEMM] Warm-up... ");
         CSRMatrix* warm_c = multiply_csr_spgemm(csr_a, csr_b);
         result_sink = (warm_c->nnz > 0) ? warm_c->values[0] : 0.0;
         int out_nnz = warm_c->nnz;
         free_csr(warm_c);
-        printf("Done (Output NNZ=%d, Fill-in=%.2fx). Running %d reps:\n",
-               out_nnz, (double)out_nnz / (double)csr_a->nnz, NUM_REPETITIONS);
+        printf("Done (Output NNZ=%d, Fill-in=%.2fx).\n",
+               out_nnz, (double)out_nnz / (double)nnz_a);
 
-        for (int r = 1; r <= NUM_REPETITIONS; r++) {
-            LARGE_INTEGER t0, t1;
-            QueryPerformanceCounter(&t0);
-            CSRMatrix* c_csr = multiply_csr_spgemm(csr_a, csr_b);
-            QueryPerformanceCounter(&t1);
-
-            result_sink = (c_csr->nnz > 0) ? c_csr->values[0] : 0.0;
-            double elapsed = (double)(t1.QuadPart - t0.QuadPart) / (double)freq.QuadPart;
-            double mem_mb = get_working_set_mb();
-
-            printf("    [CSR]   Rep %d: %9.6f s | Mem: %.2f MB\n", r, elapsed, mem_mb);
-            fprintf(writer, "sparse_csr,%d,%d,%d,%d,%.6f,%.6f,%.2f,%d,%d,%d\n",
-                    n, pct, density_pct, r, elapsed, conv_time, mem_mb, csr_a->nnz, csr_b->nnz, c_csr->nnz);
-            fflush(writer);
-            free_csr(c_csr);
-        }
-
-        /* 2. Matched Dense Kernel */
+        /* 1. Matched Dense Kernel (measured first, before freeing dense_a/b/c) */
         printf("  [Dense ikj]  Warm-up... ");
         multiply_dense_ikj(dense_a, dense_b, dense_c, n);
         result_sink = dense_c[0];
@@ -379,15 +363,36 @@ int main(int argc, char* argv[]) {
 
             printf("    [Dense] Rep %d: %9.6f s | Mem: %.2f MB\n", r, elapsed, mem_mb);
             fprintf(writer, "dense_matched,%d,%d,%d,%d,%.6f,0.000000,%.2f,%d,%d,%d\n",
-                    n, pct, density_pct, r, elapsed, mem_mb, csr_a->nnz, csr_b->nnz, out_nnz);
+                    n, pct, density_pct, r, elapsed, mem_mb, nnz_a, nnz_b, out_nnz);
             fflush(writer);
+        }
+
+        /* Free dense matrices so CSR memory is measured without dense footprint */
+        free(dense_a);
+        free(dense_b);
+        free(dense_c);
+
+        /* 2. Sparse CSR Kernel */
+        printf("  [CSR SpGEMM] Running %d reps:\n", NUM_REPETITIONS);
+        for (int r = 1; r <= NUM_REPETITIONS; r++) {
+            LARGE_INTEGER t0, t1;
+            QueryPerformanceCounter(&t0);
+            CSRMatrix* c_csr = multiply_csr_spgemm(csr_a, csr_b);
+            QueryPerformanceCounter(&t1);
+
+            result_sink = (c_csr->nnz > 0) ? c_csr->values[0] : 0.0;
+            double elapsed = (double)(t1.QuadPart - t0.QuadPart) / (double)freq.QuadPart;
+            double mem_mb = get_working_set_mb();
+
+            printf("    [CSR]   Rep %d: %9.6f s | Mem: %.2f MB\n", r, elapsed, mem_mb);
+            fprintf(writer, "sparse_csr,%d,%d,%d,%d,%.6f,%.6f,%.2f,%d,%d,%d\n",
+                    n, pct, density_pct, r, elapsed, conv_time, mem_mb, nnz_a, nnz_b, c_csr->nnz);
+            fflush(writer);
+            free_csr(c_csr);
         }
 
         free_csr(csr_a);
         free_csr(csr_b);
-        free(dense_a);
-        free(dense_b);
-        free(dense_c);
     }
 
     fclose(writer);

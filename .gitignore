@@ -1,25 +1,18 @@
-# Data files (reproducible via generation script)
-data/
-
-# Compiled binaries and object files
+# C / MSVC / GCC build artifacts
 *.exe
 *.o
-*.class
+*.obj
+*.ilk
+*.pdb
 *.out
 
 # Python cache
 __pycache__/
-*.pyc
+*.py[cod]
 
-# IDE / Editor
-.vscode/
-.idea/
-
-# LaTeX source and compilation artifacts
-*.tex
-*.pdf
+# LaTeX auxiliary files
 *.aux
 *.log
+*.out
+*.toc
 *.synctex.gz
-*.fls
-*.fdb_latexmk

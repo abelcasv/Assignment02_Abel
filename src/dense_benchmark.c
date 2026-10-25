@@ -240,12 +240,6 @@ int main(int argc, char* argv[]) {
             const char* m_name = method_names[m];
             MatMulFn fn = functions[m];
 
-            /* Skip baseline for n >= 1500 if time budget would exceed 120s */
-            if (m == 0 && n > 1000) {
-                printf("  [Method: %-14s] Skipped (exceeds 120s budget at n=%d)\n", m_name, n);
-                continue;
-            }
-
             printf("  [Method: %-14s] Warm-up... ", m_name);
             fn(a, b, c, n);
             result_sink = c[0];
