@@ -53,10 +53,6 @@ def generate_dense_matrices(data_dir: str, rng: random.Random) -> None:
         file_a = os.path.join(dense_dir, f"A_{n}.csv")
         file_b = os.path.join(dense_dir, f"B_{n}.csv")
 
-        if os.path.exists(file_a) and os.path.exists(file_b):
-            print(f"  Dense matrices {n}x{n} already exist, skipping.")
-            continue
-
         print(f"  Generating dense {n}x{n} matrices...")
         matrix_a = [[rng.random() for _ in range(n)] for _ in range(n)]
         matrix_b = [[rng.random() for _ in range(n)] for _ in range(n)]
@@ -74,10 +70,6 @@ def generate_sparse_matrices(data_dir: str, rng: random.Random) -> None:
             pct = int(sparsity * 100)
             file_a = os.path.join(sparse_dir, f"sparse_A_{n}_{pct}.csv")
             file_b = os.path.join(sparse_dir, f"sparse_B_{n}_{pct}.csv")
-
-            if os.path.exists(file_a) and os.path.exists(file_b):
-                print(f"  Sparse matrices {n}x{n} (sparsity {pct}%) already exist, skipping.")
-                continue
 
             print(f"  Generating sparse {n}x{n} matrices (sparsity {pct}%)...")
             density = 1.0 - sparsity

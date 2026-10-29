@@ -1,0 +1,5 @@
+# Python scientific dependencies for Assignment 2
+# Verified with Python 3.14.0 (64-bit) on Windows 11
+numpy==2.5.4
+pandas==3.0.6
+matplotlib==3.11.2

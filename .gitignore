@@ -10,9 +10,17 @@
 __pycache__/
 *.py[cod]
 
-# LaTeX auxiliary files
+# LaTeX auxiliary files, source, and compiled outputs
 *.aux
 *.log
 *.out
 *.toc
 *.synctex.gz
+*.pdf
+Assignment02_Report.tex
+
+# Large dataset directory
+data/
+
+# IDE files
+.vscode/
